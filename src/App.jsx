@@ -14,6 +14,7 @@ function App() {
   const [resetHighlight, setResetHighlight] = useState([]);
   const [resetingCells, setResetingCells] = useState(false);
 
+  // Check for fibonacci sequence in order after every grid change
   useEffect(() => {
     if (lastClickedCell) {
       const [row, col] = lastClickedCell;
@@ -47,9 +48,9 @@ function App() {
     }
   }, [cellsToReset]);
 
+  // Function for handling cell click, updating cell values and grid itself
   const handleCellClick = (rowIndex, colIndex) => {
     if (!resetingCells) {
-      console.log("Row: " + rowIndex + "; Col: " + colIndex);
       const updatedCells = [];
 
       const newGrid = grid.map((row, i) =>
@@ -105,7 +106,7 @@ function App() {
         verticalSequence.push(grid[r][i]);
       }
 
-      const foundIndex = sequenceCheck(verticalSequence); // Get the starting index of the found subsequence
+      const foundIndex = sequenceCheck(verticalSequence);
 
       if (foundIndex !== false) {
         // Check if a valid index was found
@@ -129,7 +130,7 @@ function App() {
         horizontalSequence.push(grid[i][c]);
       }
 
-      const foundIndex = sequenceCheck(horizontalSequence); // Get the starting index of the found subsequence
+      const foundIndex = sequenceCheck(horizontalSequence);
       if (foundIndex !== false) {
         // Check if a valid index was found
         for (
@@ -142,7 +143,6 @@ function App() {
       }
     }
 
-    console.log(clearedCells); // Log cleared cells
     setCellsToReset(clearedCells);
   };
 
@@ -165,12 +165,12 @@ function App() {
         const fibSubsequence = fib.slice(j, j + 5);
 
         if (subsequence.every((val, idx) => val === fibSubsequence[idx])) {
-          return i; // Return the starting index of the found valid Fibonacci subsequence
+          return i;
         }
       }
     }
 
-    return false; // No Fibonacci subsequence found
+    return false;
   };
 
   // Function to determine whether to highlight certain cell
@@ -179,6 +179,14 @@ function App() {
       highlightedCells.some(([r, c]) => r === row && c === col) ||
       resetHighlight.some(([r, c]) => r === row && c === col)
     );
+  };
+
+  const handleResetButton = () => {
+    const nullGrid = Array(gridSize)
+      .fill(null)
+      .map(() => Array(gridSize).fill(null));
+
+    setGrid(nullGrid);
   };
 
   return (
@@ -205,6 +213,11 @@ function App() {
             ))}
           </div>
         ))}
+      </div>
+      <div className="button-container">
+        <button className="button" onClick={() => handleResetButton()}>
+          Reset Grid
+        </button>
       </div>
     </div>
   );
