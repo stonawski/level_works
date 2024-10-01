@@ -1,0 +1,44 @@
+.grid {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 80%;
+  width: 90%;
+  margin: 1% 0 0 5%;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+}
+
+.cell {
+  width: 25px;
+  height: 15px;
+  background-color: #fff;
+  border: 1px solid #b1b1b1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.cell:hover {
+  background-color: #f0f0f0;
+}
+
+.cell.highlight {
+  background-color: rgb(255, 230, 0);
+}
+
+.highlight {
+  background-color: yellow;
+  transition: background-color 0.3s ease;
+}
+
+.reset-highlight {
+  background-color: green;
+  transition: background-color 1s ease; /* Duration for green highlight */
+}
