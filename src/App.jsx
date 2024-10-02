@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import "./App.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRotateLeft, faRotateRight } from "@fortawesome/free-solid-svg-icons";
 
 function App() {
+  // Generate an initial grid 50x50 with null values
   const gridSize = 50;
   const initialGrid = Array(gridSize)
     .fill(null)
@@ -10,17 +13,75 @@ function App() {
   const [grid, setGrid] = useState(initialGrid);
   const [highlightedCells, setHighlightedCells] = useState([]);
   const [cellsToReset, setCellsToReset] = useState([]);
-  const [lastClickedCell, setLastClickedCell] = useState(null);
   const [resetHighlight, setResetHighlight] = useState([]);
   const [resetingCells, setResetingCells] = useState(false);
+  const [history, setHistory] = useState([initialGrid]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [redoStack, setRedoStack] = useState([]);
+
+  // Function for creating seq for every row and column
+  const generateSequencesForCheck = useCallback(() => {
+    const clearedCells = [];
+
+    // Check each row (both left to right and right to left)
+    for (let row = 0; row < gridSize; row++) {
+      const rowSequence = grid[row];
+      const reverseRowSequence = [...rowSequence].reverse();
+
+      // Check for Fibonacci sequence in the row (left to right)
+      const rowFoundIndex = sequenceCheck(rowSequence);
+      if (rowFoundIndex !== false) {
+        for (let c = rowFoundIndex; c < rowFoundIndex + 5; c++) {
+          clearedCells.push([row, c]);
+        }
+      }
+
+      // Check for Fibonacci sequence in the row (right to left)
+      const reverseRowFoundIndex = sequenceCheck(reverseRowSequence);
+      if (reverseRowFoundIndex !== false) {
+        for (
+          let c = gridSize - 1 - reverseRowFoundIndex;
+          c > gridSize - 6 - reverseRowFoundIndex;
+          c--
+        ) {
+          clearedCells.push([row, c]);
+        }
+      }
+    }
+
+    // Check each column (both top to bottom and bottom to top)
+    for (let col = 0; col < gridSize; col++) {
+      const colSequence = grid.map((r) => r[col]); // Get the entire column
+      const reverseColSequence = [...colSequence].reverse();
+
+      // Check for Fibonacci sequence in the column (top to bottom)
+      const colFoundIndex = sequenceCheck(colSequence);
+      if (colFoundIndex !== false) {
+        for (let r = colFoundIndex; r < colFoundIndex + 5; r++) {
+          clearedCells.push([r, col]);
+        }
+      }
+
+      // Check for Fibonacci sequence in the column (bottom to top)
+      const reverseColFoundIndex = sequenceCheck(reverseColSequence);
+      if (reverseColFoundIndex !== false) {
+        for (
+          let r = gridSize - 1 - reverseColFoundIndex;
+          r > gridSize - 6 - reverseColFoundIndex;
+          r--
+        ) {
+          clearedCells.push([r, col]);
+        }
+      }
+    }
+
+    setCellsToReset(clearedCells);
+  }, [grid]);
 
   // Check for fibonacci sequence in order after every grid change
   useEffect(() => {
-    if (lastClickedCell) {
-      const [row, col] = lastClickedCell;
-      generateSequencesForCheck(row, col);
-    }
-  }, [grid]);
+    generateSequencesForCheck();
+  }, [generateSequencesForCheck]);
 
   useEffect(() => {
     // Highlight and clear the cellsToReset briefly
@@ -28,25 +89,36 @@ function App() {
       setResetHighlight(cellsToReset);
       setResetingCells(true);
 
-      // Clear cells after highlighting
       setTimeout(() => {
-        const newGrid = grid.map((row, rowIndex) =>
-          row.map((cell, colIndex) => {
-            // Clear the cell if it is in cellsToReset
-            return cellsToReset.some(
-              ([r, c]) => r === rowIndex && c === colIndex
-            )
-              ? null
-              : cell;
-          })
+        // Use functional form of setGrid to ensure it works with the most recent grid state
+        setGrid((prevGrid) =>
+          prevGrid.map((row, rowIndex) =>
+            row.map((cell, colIndex) => {
+              return cellsToReset.some(
+                ([r, c]) => r === rowIndex && c === colIndex
+              )
+                ? null
+                : cell;
+            })
+          )
         );
-        setGrid(newGrid);
+
+        // Clear the reset state after the timeout completes
         setCellsToReset([]);
         setResetHighlight([]);
         setResetingCells(false);
       }, 1500);
     }
   }, [cellsToReset]);
+
+  // Update the grid and store it in history for undo/redo functionality
+  const updateGrid = (newGrid) => {
+    const newHistory = history.slice(0, currentStep + 1); // Discard redo history when new action is performed
+    setHistory([...newHistory, newGrid]);
+    setCurrentStep(newHistory.length);
+    setGrid(newGrid);
+    setRedoStack([]);
+  };
 
   // Function for handling cell click, updating cell values and grid itself
   const handleCellClick = (rowIndex, colIndex) => {
@@ -62,9 +134,9 @@ function App() {
           return cellValue;
         })
       );
-      setGrid(newGrid);
+
+      updateGrid(newGrid);
       setHighlightedCells(updatedCells);
-      setLastClickedCell([rowIndex, colIndex]);
 
       setTimeout(() => {
         setHighlightedCells([]);
@@ -72,78 +144,25 @@ function App() {
     }
   };
 
-  const generateSequencesForCheck = (row, col) => {
-    const clearedCells = [];
-
-    const rowSequence = grid[row];
-    const rowFoundIndex = sequenceCheck(rowSequence);
-
-    if (rowFoundIndex !== false) {
-      // If Fibonacci sequence is found, clear those cells in the row
-      for (let c = rowFoundIndex; c < rowFoundIndex + 5; c++) {
-        clearedCells.push([row, c]);
-      }
+  // Undo action: Revert to the previous grid state
+  const handleUndo = () => {
+    if (currentStep > 0) {
+      const prevGrid = history[currentStep - 1];
+      setGrid(prevGrid);
+      setRedoStack([history[currentStep], ...redoStack]);
+      setCurrentStep(currentStep - 1);
     }
+  };
 
-    // Check the entire column for Fibonacci sequences
-    const colSequence = grid.map((r) => r[col]); // Get the entire column
-    const colFoundIndex = sequenceCheck(colSequence);
-
-    if (colFoundIndex !== false) {
-      // If Fibonacci sequence is found, clear those cells in the column
-      for (let r = colFoundIndex; r < colFoundIndex + 5; r++) {
-        clearedCells.push([r, col]);
-      }
+  // Redo action: Move forward in the history if possible
+  const handleRedo = () => {
+    if (redoStack.length > 0) {
+      const nextGrid = redoStack[0];
+      setGrid(nextGrid);
+      setHistory([...history.slice(0, currentStep + 1), nextGrid]);
+      setCurrentStep(currentStep + 1);
+      setRedoStack(redoStack.slice(1));
     }
-
-    // Generate column sequences for selected row
-    const startRow = Math.max(row - 4, 0);
-    const endRow = Math.min(row + 4, gridSize - 1);
-
-    for (let i = 0; i < gridSize; i++) {
-      const verticalSequence = [];
-      for (let r = startRow; r <= endRow; r++) {
-        verticalSequence.push(grid[r][i]);
-      }
-
-      const foundIndex = sequenceCheck(verticalSequence);
-
-      if (foundIndex !== false) {
-        // Check if a valid index was found
-        for (
-          let r = startRow + foundIndex;
-          r < startRow + foundIndex + 5;
-          r++
-        ) {
-          clearedCells.push([r, i]);
-        }
-      }
-    }
-
-    // Generate row sequences for selected column
-    const startCol = Math.max(col - 4, 0);
-    const endCol = Math.min(col + 4, gridSize - 1);
-
-    for (let i = 0; i < gridSize; i++) {
-      const horizontalSequence = [];
-      for (let c = startCol; c <= endCol; c++) {
-        horizontalSequence.push(grid[i][c]);
-      }
-
-      const foundIndex = sequenceCheck(horizontalSequence);
-      if (foundIndex !== false) {
-        // Check if a valid index was found
-        for (
-          let c = startCol + foundIndex;
-          c < startCol + foundIndex + 5;
-          c++
-        ) {
-          clearedCells.push([i, c]);
-        }
-      }
-    }
-
-    setCellsToReset(clearedCells);
   };
 
   // Checks if sequence contains some subsequence of Fibonacci numbers
@@ -181,12 +200,16 @@ function App() {
     );
   };
 
+  // Function for reseting the grid to default values
   const handleResetButton = () => {
     const nullGrid = Array(gridSize)
       .fill(null)
       .map(() => Array(gridSize).fill(null));
 
     setGrid(nullGrid);
+    setHistory([initialGrid]);
+    setRedoStack([]);
+    setCurrentStep(0);
   };
 
   return (
@@ -215,8 +238,22 @@ function App() {
         ))}
       </div>
       <div className="button-container">
+        <button
+          className="history-button left"
+          onClick={handleUndo}
+          disabled={currentStep === 0 || resetingCells}
+        >
+          <FontAwesomeIcon icon={faRotateLeft} />
+        </button>
         <button className="button" onClick={() => handleResetButton()}>
           Reset Grid
+        </button>
+        <button
+          className="history-button right"
+          onClick={handleRedo}
+          disabled={redoStack.length === 0 || resetingCells}
+        >
+          <FontAwesomeIcon icon={faRotateRight} />
         </button>
       </div>
     </div>
